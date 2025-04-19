@@ -36,33 +36,32 @@ public class LoginService(IConfiguration configuration, ILogger<LoginService> lo
         _lagrange.Invoker.OnBotLogEvent += BotLogHandler;
         _notify.RegisterEvents();
 
-        bool isSucceed = await FallbackAsync.Create()
-            .Add((token) =>
-            {
-                var keystore = _lagrange.UpdateKeystore();
-                if (keystore.Session.TempPassword == null) return Task.FromResult(false);
-                if (keystore.Session.TempPassword.Length == 0) return Task.FromResult(false);
-                return _lagrange.LoginByEasy(token);
-            })
-            .Add(async (token) =>
-            {
-                (string Url, byte[] QrCode)? qrcode = await _lagrange.FetchQrCode().WaitAsync(token);
-                if (!qrcode.HasValue) return false;
-
-                await File.WriteAllBytesAsync($"qr-{configuration["Account:Uin"]}.png", qrcode.Value.QrCode, token);
-                QrCodeHelper.Output(qrcode.Value.Url, _isCompatibility);
-
-                return await (Task<bool>)_lagrange.LoginByQrCode(token);
-            })
-            .ExecuteAsync(token);
-
-        if (!isSucceed) throw new Exception("All login failed!");
-
+        // bool isSucceed = await FallbackAsync.Create()
+        //     .Add((token) =>
+        //     {
+        //         var keystore = _lagrange.UpdateKeystore();
+        //         if (keystore.Session.TempPassword == null) return Task.FromResult(false);
+        //         if (keystore.Session.TempPassword.Length == 0) return Task.FromResult(false);
+        //         return _lagrange.LoginByEasy(token);
+        //     })
+        //     .Add(async (token) =>
+        //     {
+        //         (string Url, byte[] QrCode)? qrcode = await _lagrange.FetchQrCode().WaitAsync(token);
+        //         if (!qrcode.HasValue) return false;
+        //
+        //         await File.WriteAllBytesAsync($"qr-{configuration["Account:Uin"]}.png", qrcode.Value.QrCode, token);
+        //         QrCodeHelper.Output(qrcode.Value.Url, _isCompatibility);
+        //
+        //         return await (Task<bool>)_lagrange.LoginByQrCode(token);
+        //     })
+        //     .ExecuteAsync(token);
+        //
+        // if (!isSucceed) throw new Exception("All login failed!");
+        //
         string keystoreJson = JsonSerializer.Serialize(_lagrange.UpdateKeystore());
         File.WriteAllText(configuration["ConfigPath:Keystore"] ?? "keystore.json", keystoreJson);
 
         _logger.LogInformation("Bot Uin: {}", _lagrange.BotUin);
-
         await _web.StartAsync(token);
     }
 

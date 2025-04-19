@@ -39,7 +39,8 @@ internal class PacketContext : ContextBase
     {
         var task = new TaskCompletionSource<SsoPacket>();
         _pendingTasks.TryAdd(packet.Sequence, task);
-
+        Collection.PmhqContext.Send(packet).GetAwaiter().GetResult();
+        return task.Task;
         switch (packet.PacketType)
         {
             case 12:
@@ -65,6 +66,7 @@ internal class PacketContext : ContextBase
     /// </summary>
     public async Task<bool> PostPacket(SsoPacket packet)
     {
+        return await Collection.PmhqContext.Send(packet);
         switch (packet.PacketType)
         {
             case 12:
@@ -105,6 +107,18 @@ internal class PacketContext : ContextBase
         else
         {
             Collection.Business.HandleServerPacket(sso);
+        }
+    }
+
+    public void DispatchPacket(SsoPacket packet)
+    {
+        if (_pendingTasks.TryRemove(packet.Sequence, out var task))
+        {
+            task.SetResult(packet);
+        }
+        else
+        {
+            Collection.Business.HandleServerPacket(packet);
         }
     }
 }

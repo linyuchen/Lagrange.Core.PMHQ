@@ -6,6 +6,7 @@ namespace Lagrange.Core.Internal.Context;
 
 internal class ContextCollection : IDisposable
 {
+    public PMHQContext PmhqContext { get; }
     public PacketContext Packet { get; }
     public SocketContext Socket { get; }
     public ServiceContext Service { get; }
@@ -23,6 +24,11 @@ internal class ContextCollection : IDisposable
     public ContextCollection(BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device, BotConfig config,
         EventInvoker invoker, TaskScheduler scheduler)
     {
+        if (keystore.Uid == null)
+        {
+            keystore.Uid = "null";
+        }
+        PmhqContext = new PMHQContext(this, keystore, appInfo, device, config);
         Log = new LogContext(this, keystore, appInfo, device, invoker);
         Packet = new PacketContext(this, keystore, appInfo, device, config);
         Socket = new SocketContext(this, keystore, appInfo, device, config);
