@@ -45,14 +45,13 @@ internal class PMHQContext : ContextBase
     {
         _config = config;
         _serverUri = new Uri(string.Format("ws://{0}:{1}/ws", config.PMHQ.Host, config.PMHQ.Port));
-        _cts = new CancellationTokenSource();
     }
 
     public void Start()
     {
         if (!Connect().GetAwaiter().GetResult())
         {
-            ScheduleReconnect();
+            
         }
     }
     public async Task<bool> Connect()
@@ -62,10 +61,11 @@ internal class PMHQContext : ContextBase
         try
         {
             _webSocket = new ClientWebSocket();
+            _cts = new CancellationTokenSource();
             await _webSocket.ConnectAsync(_serverUri, _cts.Token);
+            Connected = true;
             _ = StartReceiveLoop();
             Collection.Log.LogInfo(Tag, "WS Connect Success");
-            Connected = true;
             return true;
         }
         catch (Exception ex)
