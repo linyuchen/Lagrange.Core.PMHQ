@@ -18,10 +18,13 @@ internal class PacketContext : ContextBase
     internal SignProvider SignProvider { private get; set; }
     
     private readonly ConcurrentDictionary<uint, TaskCompletionSource<SsoPacket>> _pendingTasks;
+
+    private readonly bool EnablePMHQ;
     
     public PacketContext(ContextCollection collection, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device, BotConfig config) 
         : base(collection, keystore, appInfo, device)
     {
+        EnablePMHQ = config.PMHQ.Enable;
         SignProvider = config.CustomSignProvider ?? appInfo.Os switch
         {
             "Windows" => new WindowsSigner(),
@@ -39,8 +42,12 @@ internal class PacketContext : ContextBase
     {
         var task = new TaskCompletionSource<SsoPacket>();
         _pendingTasks.TryAdd(packet.Sequence, task);
-        Collection.PmhqContext.Send(packet).GetAwaiter().GetResult();
-        return task.Task;
+        if (EnablePMHQ)
+        {
+            Collection.PmhqContext.Send(packet).GetAwaiter().GetResult();
+            return task.Task;
+        }
+
         switch (packet.PacketType)
         {
             case 12:
@@ -66,7 +73,11 @@ internal class PacketContext : ContextBase
     /// </summary>
     public async Task<bool> PostPacket(SsoPacket packet)
     {
-        return await Collection.PmhqContext.Send(packet);
+        if (EnablePMHQ)
+        {
+            return await Collection.PmhqContext.Send(packet);
+        }
+
         switch (packet.PacketType)
         {
             case 12:

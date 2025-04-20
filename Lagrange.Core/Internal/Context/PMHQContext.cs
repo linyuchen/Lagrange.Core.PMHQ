@@ -36,32 +36,41 @@ internal class PMHQContext : ContextBase
     private readonly BotConfig _config;
     private ClientWebSocket _webSocket;
     private CancellationTokenSource _cts;
-    private Uri _serverUri = new Uri("ws://127.0.0.1:13000/ws");
+    private Uri _serverUri;
 
-    public bool Connected => _webSocket?.State == WebSocketState.Open;
+    public bool Connected = false;
 
     public PMHQContext(ContextCollection collection, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device, BotConfig config) 
         : base(collection, keystore, appInfo, device)
     {
         _config = config;
-        _webSocket = new ClientWebSocket();
+        _serverUri = new Uri(string.Format("ws://{0}:{1}/ws", config.PMHQ.Host, config.PMHQ.Port));
         _cts = new CancellationTokenSource();
-        Connect().GetAwaiter().GetResult();
     }
 
+    public void Start()
+    {
+        if (!Connect().GetAwaiter().GetResult())
+        {
+            ScheduleReconnect();
+        }
+    }
     public async Task<bool> Connect()
     {
         if (Connected) return true;
-
-        
+        Collection.Log.LogInfo(Tag, "WS Connecting...");
         try
         {
+            _webSocket = new ClientWebSocket();
             await _webSocket.ConnectAsync(_serverUri, _cts.Token);
             _ = StartReceiveLoop();
+            Collection.Log.LogInfo(Tag, "WS Connect Success");
+            Connected = true;
             return true;
         }
         catch (Exception ex)
         {
+            Collection.Log.LogFatal(Tag, "WS Connect Failed: " + ex.Message);
             return false;
         }
     }
@@ -111,6 +120,7 @@ internal class PMHQContext : ContextBase
         }
         catch (Exception ex)
         {
+            Collection.Log.LogFatal(Tag, "WS fetch message error: " + ex.Message);
         }
     }
 
@@ -135,7 +145,7 @@ internal class PMHQContext : ContextBase
         }
         catch (Exception ex)
         {
-            Collection.Log.LogWarning("Send WS data error", ex.Message);
+            Collection.Log.LogWarning(Tag, ex.Message);
             return false;
         }
     }
@@ -158,15 +168,23 @@ internal class PMHQContext : ContextBase
 
     public void OnDisconnect()
     {
+        Connected = false;
         Collection.Log.LogFatal(Tag, "WebSocket Disconnected");
-        if (_config.AutoReconnect) ScheduleReconnect();
+        ScheduleReconnect();
     }
 
     private void ScheduleReconnect()
     {
-        Collection.Scheduler.Interval("WS Reconnect", 10 * 1000, async () =>
+        Collection.Scheduler.Interval("WS Reconnect", 5 * 1000, async () =>
         {
-            if (await Connect()) Collection.Scheduler.Cancel("WS Reconnect");
+            if (await Connect())
+            {
+                Collection.Scheduler.Cancel("WS Reconnect");
+            }
+            else
+            {
+                Collection.Log.LogWarning(Tag, "WS Reconnecting");
+            }
         });
     }
 

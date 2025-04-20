@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Realms;
 using JsonSerializer = System.Text.Json.JsonSerializer;
+using PMHQConfig = Lagrange.Core.Utility.PMHQConfig;
 
 namespace Lagrange.OneBot.Extensions;
 
@@ -25,7 +26,6 @@ public static class HostApplicationBuilderExtension
             .AddSingleton((services) => // BotConfig
             {
                 var configuration = services.GetRequiredService<IConfiguration>();
-
                 return new BotConfig
                 {
                     Protocol = configuration["Account:Protocol"] switch
@@ -38,7 +38,13 @@ public static class HostApplicationBuilderExtension
                     UseIPv6Network = configuration.GetValue("Account:UseIPv6Network", false),
                     GetOptimumServer = configuration.GetValue("Account:GetOptimumServer", true),
                     AutoReLogin = configuration.GetValue("Account:AutoReLogin", true),
-                    CustomSignProvider = services.GetRequiredService<OneBotSigner>()
+                    CustomSignProvider = services.GetRequiredService<OneBotSigner>(),
+                    PMHQ = new PMHQConfig
+                    {
+                        Enable = configuration.GetValue<bool>("PMHQ:Enable", true),
+                        Host = configuration.GetValue("PMHQ:Host", "127.0.0.1"),
+                        Port = configuration.GetValue<uint>("PMHQ:Port", 13000)
+                    }
                 };
             })
             .AddSingleton((services) => // Device

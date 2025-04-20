@@ -1,3 +1,4 @@
+using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Sign;
 
 namespace Lagrange.Core.Common;
@@ -47,6 +48,9 @@ public class BotConfig
     /// Refresh the session when the session is about to expired
     /// </summary>
     public bool AutoReLogin { get; set; } = true;
+    
+    public PMHQConfig PMHQ { get; set; } = new PMHQConfig();
+    
 }
 
 /// <summary>
