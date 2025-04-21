@@ -44,7 +44,7 @@ internal class PMHQContext : ContextBase
         : base(collection, keystore, appInfo, device)
     {
         _config = config;
-        _serverUri = new Uri(string.Format("ws://{0}:{1}/ws", config.PMHQ.Host, config.PMHQ.Port));
+        _serverUri = new Uri($"ws://{config.PMHQ.Host}:{config.PMHQ.Port}/ws");
     }
 
     public void Start()
