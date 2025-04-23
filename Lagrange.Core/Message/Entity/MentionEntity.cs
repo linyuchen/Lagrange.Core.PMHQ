@@ -62,13 +62,13 @@ public class MentionEntity : IMessageEntity
         if (elems.Text is { Str: not null, PbReserve: { Length: > 0 } extra })
         {
             MentionExtra info = Serializer.Deserialize<MentionExtra>(extra.AsSpan());
-            if (info.Type != 2) return null;
-
+            if (info.Type != 2 && info.Type != 1) return null;
+            if (info.Type == 2 && info.Uin == 0) return null;
             return new MentionEntity
             {
                 Name = elems.Text.Str,
                 Uin = info.Uin,
-                Uid = ""
+                Uid = info.Uid
             };
         }
 
