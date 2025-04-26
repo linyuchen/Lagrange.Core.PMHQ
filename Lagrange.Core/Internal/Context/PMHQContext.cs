@@ -5,8 +5,42 @@ using System.Text.Json.Serialization;
 using Lagrange.Core.Common;
 using Lagrange.Core.Internal.Packets;
 using Lagrange.Core.Utility.Extension;
+using Lagrange.Core.Utility.Network;
 
 namespace Lagrange.Core.Internal.Context;
+
+public class GetSelfInfoResponse
+{
+    [JsonPropertyName("code")]
+    public int Code { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; }
+
+    [JsonPropertyName("data")]
+    public GetSelfInfoResponseData Data { get; set; }
+}
+
+public class GetSelfInfoResponseData
+{
+    [JsonPropertyName("echo")]
+    public string Echo { get; set; }
+
+    [JsonPropertyName("result")]
+    public GetSelfInfoResultData Result { get; set; }
+}
+
+public class GetSelfInfoResultData
+{
+    [JsonPropertyName("uin")]
+    public string Uin { get; set; }
+
+    [JsonPropertyName("uid")]
+    public string Uid { get; set; }
+}
 
 public class WebSocketMessage
 {
@@ -36,7 +70,8 @@ internal class PMHQContext : ContextBase
     private readonly BotConfig _config;
     private ClientWebSocket _webSocket;
     private CancellationTokenSource _cts;
-    private Uri _serverUri;
+    private Uri _wsServerUri;
+    private Uri _httpServerUri;
 
     public bool Connected = false;
 
@@ -44,12 +79,37 @@ internal class PMHQContext : ContextBase
         : base(collection, keystore, appInfo, device)
     {
         _config = config;
-        _serverUri = new Uri($"ws://{config.PMHQ.Host}:{config.PMHQ.Port}/ws");
+        _wsServerUri = new Uri($"ws://{config.PMHQ.Host}:{config.PMHQ.Port}/ws");
+        _httpServerUri = new Uri($"http://{config.PMHQ.Host}:{config.PMHQ.Port}/");
     }
 
+    public void getSelfInfo()
+    {
+        var requestData = new
+        {
+            type = "call",
+            data = new
+            {
+                func = "getSelfInfo"
+            }
+        };
+
+        string json = JsonSerializer.Serialize(requestData);
+
+        byte[] payload = Encoding.UTF8.GetBytes(json);
+        byte[] responseBytes = Http.PostAsync(_httpServerUri.ToString(), payload, "application/json").GetAwaiter().GetResult();
+        string responseJson = Encoding.UTF8.GetString(responseBytes);
+        var response = JsonSerializer.Deserialize<GetSelfInfoResponse>(responseJson);
+        if (response?.Code == 0)
+        {
+            Collection.Keystore.Uin = uint.Parse(response.Data.Result.Uin);
+            Collection.Keystore.Uid = response.Data.Result.Uid;
+        }
+    }
+    
     public void Start()
     {
-        if (!Connect().GetAwaiter().GetResult())
+        if (Connect().GetAwaiter().GetResult())
         {
             
         }
@@ -62,10 +122,11 @@ internal class PMHQContext : ContextBase
         {
             _webSocket = new ClientWebSocket();
             _cts = new CancellationTokenSource();
-            await _webSocket.ConnectAsync(_serverUri, _cts.Token);
+            await _webSocket.ConnectAsync(_wsServerUri, _cts.Token);
             Connected = true;
             _ = StartReceiveLoop();
             Collection.Log.LogInfo(Tag, "WS Connect Success");
+            getSelfInfo();
             return true;
         }
         catch (Exception ex)
@@ -95,14 +156,10 @@ internal class PMHQContext : ContextBase
                         string fullMessage = _textBuffer.ToString();
                         _textBuffer.Clear();
                         var message = JsonSerializer.Deserialize<WebSocketMessage>(fullMessage);
-                        if (message != null)
+                        if (message != null && message.Data.PayloadHex != null)
                         {
-                            string echo = message.Data.Echo;
-                            if (string.IsNullOrEmpty(echo))
-                            {
-                                echo = "0";
-                            }
-                            var packet = new SsoPacket(12, message.Data.Command, uint.Parse(echo),
+                            uint.TryParse(message.Data.Echo, out uint echo);
+                            var packet = new SsoPacket(12, message.Data.Command, echo,
                                 message.Data.PayloadHex.UnHex());
                             if (Collection.Packet != null)
                             {
