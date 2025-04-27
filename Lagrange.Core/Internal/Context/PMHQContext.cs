@@ -11,93 +11,73 @@ namespace Lagrange.Core.Internal.Context;
 
 public class GetSelfInfoResponse
 {
-    [JsonPropertyName("code")]
-    public int Code { get; set; }
+    [JsonPropertyName("code")] public int Code { get; set; }
 
-    [JsonPropertyName("message")]
-    public string Message { get; set; }
+    [JsonPropertyName("message")] public string Message { get; set; }
 
-    [JsonPropertyName("type")]
-    public string Type { get; set; }
+    [JsonPropertyName("type")] public string Type { get; set; }
 
-    [JsonPropertyName("data")]
-    public GetSelfInfoResponseData Data { get; set; }
+    [JsonPropertyName("data")] public GetSelfInfoResponseData Data { get; set; }
 }
 
 public class GetSelfInfoResponseData
 {
-    [JsonPropertyName("echo")]
-    public string Echo { get; set; }
+    [JsonPropertyName("echo")] public string Echo { get; set; }
 
-    [JsonPropertyName("result")]
-    public GetSelfInfoResultData Result { get; set; }
+    [JsonPropertyName("result")] public GetSelfInfoResultData Result { get; set; }
 }
 
 public class GetSelfInfoResultData
 {
-    [JsonPropertyName("uin")]
-    public string Uin { get; set; }
+    [JsonPropertyName("uin")] public string Uin { get; set; }
 
-    [JsonPropertyName("uid")]
-    public string Uid { get; set; }
+    [JsonPropertyName("uid")] public string Uid { get; set; }
 }
 
 public class WebSocketMessage
 {
-    [JsonPropertyName("type")] 
-    public string Type { get; set; }
+    [JsonPropertyName("type")] public string Type { get; set; }
 
-    [JsonPropertyName("data")]
-    public MessageData Data { get; set; }
+    [JsonPropertyName("data")] public MessageData Data { get; set; }
 }
 
 public class MessageData
 {
-    
-    [JsonPropertyName("echo")]
-    public string? Echo { get; set; }
-    
-    [JsonPropertyName("cmd")]
-    public string Command { get; set; }
+    [JsonPropertyName("echo")] public string? Echo { get; set; }
 
-    [JsonPropertyName("pb")]
-    public string PayloadHex { get; set; }
+    [JsonPropertyName("cmd")] public string? Command { get; set; }
+
+    [JsonPropertyName("pb")] public string? PayloadHex { get; set; }
 }
+
 internal class PMHQContext : ContextBase
 {
     private const string Tag = nameof(PMHQContext);
-    
-    private readonly BotConfig _config;
+
     private ClientWebSocket _webSocket;
     private CancellationTokenSource _cts;
     private Uri _wsServerUri;
     private Uri _httpServerUri;
 
-    public bool Connected = false;
+    public bool Connected;
 
-    public PMHQContext(ContextCollection collection, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device, BotConfig config) 
+    public PMHQContext(ContextCollection collection, BotKeystore keystore, BotAppInfo appInfo, BotDeviceInfo device,
+        BotConfig config)
         : base(collection, keystore, appInfo, device)
     {
-        _config = config;
         _wsServerUri = new Uri($"ws://{config.PMHQ.Host}:{config.PMHQ.Port}/ws");
         _httpServerUri = new Uri($"http://{config.PMHQ.Host}:{config.PMHQ.Port}/");
     }
 
     public void getSelfInfo()
     {
-        var requestData = new
-        {
-            type = "call",
-            data = new
-            {
-                func = "getSelfInfo"
-            }
-        };
+        var requestData = new { type = "call", data = new { func = "getSelfInfo" } };
 
         string json = JsonSerializer.Serialize(requestData);
 
         byte[] payload = Encoding.UTF8.GetBytes(json);
-        byte[] responseBytes = Http.PostAsync(_httpServerUri.ToString(), payload, "application/json").GetAwaiter().GetResult();
+        byte[] responseBytes = Http.PostAsync(_httpServerUri.ToString(), payload, "application/json").GetAwaiter()
+            .GetResult();
         string responseJson = Encoding.UTF8.GetString(responseBytes);
         var response = JsonSerializer.Deserialize<GetSelfInfoResponse>(responseJson);
         if (response?.Code == 0)
@@ -106,14 +86,18 @@ internal class PMHQContext : ContextBase
             Collection.Keystore.Uid = response.Data.Result.Uid;
         }
     }
-    
+
     public void Start()
     {
         if (Connect().GetAwaiter().GetResult())
         {
-            
+        }
+        else
+        {
+            ScheduleReconnect();
         }
     }
+
     public async Task<bool> Connect()
     {
         if (Connected) return true;
@@ -129,23 +113,25 @@ internal class PMHQContext : ContextBase
             getSelfInfo();
             return true;
         }
+
         catch (Exception ex)
         {
             Collection.Log.LogFatal(Tag, "WS Connect Failed: " + ex.Message);
             return false;
         }
+
     }
 
     private async Task StartReceiveLoop()
     {
         var buffer = new byte[4096];
-        StringBuilder _textBuffer = new(); 
+        StringBuilder _textBuffer = new();
         try
         {
             while (Connected && !_cts.IsCancellationRequested)
             {
                 var result = await _webSocket.ReceiveAsync(buffer, _cts.Token);
-            
+
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     string chunk = Encoding.UTF8.GetString(buffer, 0, result.Count);
@@ -175,6 +161,14 @@ internal class PMHQContext : ContextBase
                 }
             }
         }
+        catch (WebSocketException ex)
+        {
+            if (_webSocket.State != WebSocketState.Open)
+            {
+                Collection.Log.LogFatal(Tag, "WS Server error: " + ex.Message);
+                Connected = false;
+            }
+        }
         catch (Exception ex)
         {
             Collection.Log.LogFatal(Tag, "WS fetch message error: " + ex.Message);
@@ -184,17 +178,14 @@ internal class PMHQContext : ContextBase
     public async Task<bool> Send(SsoPacket packet)
     {
         if (!Connected) return false;
-        var payload = new {
+        var payload = new
+        {
             type = "send",
-            data = new {
-                echo = packet.Sequence.ToString(),
-                cmd = packet.Command,
-                pb = packet.Payload.Hex()
-            }
+            data = new { echo = packet.Sequence.ToString(), cmd = packet.Command, pb = packet.Payload.Hex() }
         };
 
         string json = JsonSerializer.Serialize(payload);
-        byte[] jsonBytes = Encoding.UTF8.GetBytes(json); 
+        byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
         try
         {
             await _webSocket.SendAsync(jsonBytes, WebSocketMessageType.Text, true, _cts.Token);
@@ -219,7 +210,6 @@ internal class PMHQContext : ContextBase
         }
         catch (Exception ex)
         {
-            
         }
     }
 
@@ -227,21 +217,13 @@ internal class PMHQContext : ContextBase
     {
         Connected = false;
         Collection.Log.LogFatal(Tag, "WebSocket Disconnected");
-        ScheduleReconnect();
     }
 
     private void ScheduleReconnect()
     {
         Collection.Scheduler.Interval("WS Reconnect", 5 * 1000, async () =>
         {
-            if (await Connect())
-            {
-                Collection.Scheduler.Cancel("WS Reconnect");
-            }
-            else
-            {
-                Collection.Log.LogWarning(Tag, "WS Reconnecting");
-            }
+            await Connect();
         });
     }
 
