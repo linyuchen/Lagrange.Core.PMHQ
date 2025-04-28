@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Lagrange.Core.Common;
+using Lagrange.Core.Internal.Event.System;
 using Lagrange.Core.Internal.Packets;
 using Lagrange.Core.Utility.Extension;
 using Lagrange.Core.Utility.Network;
@@ -84,6 +85,20 @@ internal class PMHQContext : ContextBase
         {
             Collection.Keystore.Uin = uint.Parse(response.Data.Result.Uin);
             Collection.Keystore.Uid = response.Data.Result.Uid;
+            var events = Collection.Business.SendEvent(FetchUserInfoEvent.Create(Collection.Keystore.Uin)).Result;
+            if (events.Count != 0 && events[0] is FetchUserInfoEvent { } @event)
+            {
+                Collection.Keystore.Info = new BotKeystore.BotInfo
+                {
+                    Name = @event.UserInfo.Nickname,
+                    Age = (byte)@event.UserInfo.Age,
+                    Gender = (byte)@event.UserInfo.Gender
+                };
+            }
+            else
+            {
+                Collection.Log.LogWarning(Tag, "Get BotInfo Failed");
+            }
         }
     }
 
