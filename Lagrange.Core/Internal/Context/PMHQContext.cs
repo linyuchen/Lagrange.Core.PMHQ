@@ -70,22 +70,21 @@ internal class PMHQContext : ContextBase
         _httpServerUri = new Uri($"http://{config.PMHQ.Host}:{config.PMHQ.Port}/");
     }
 
-    public void getSelfInfo()
+    public async Task GetSelfInfo()
     {
         var requestData = new { type = "call", data = new { func = "getSelfInfo" } };
 
         string json = JsonSerializer.Serialize(requestData);
 
         byte[] payload = Encoding.UTF8.GetBytes(json);
-        byte[] responseBytes = Http.PostAsync(_httpServerUri.ToString(), payload, "application/json").GetAwaiter()
-            .GetResult();
+        byte[] responseBytes = await Http.PostAsync(_httpServerUri.ToString(), payload, "application/json");
         string responseJson = Encoding.UTF8.GetString(responseBytes);
         var response = JsonSerializer.Deserialize<GetSelfInfoResponse>(responseJson);
         if (response?.Code == 0)
         {
             Collection.Keystore.Uin = uint.Parse(response.Data.Result.Uin);
             Collection.Keystore.Uid = response.Data.Result.Uid;
-            var events = Collection.Business.SendEvent(FetchUserInfoEvent.Create(Collection.Keystore.Uin)).Result;
+            var events = await Collection.Business.SendEvent(FetchUserInfoEvent.Create(Collection.Keystore.Uin));
             if (events.Count != 0 && events[0] is FetchUserInfoEvent { } @event)
             {
                 Collection.Keystore.Info = new BotKeystore.BotInfo
@@ -125,7 +124,7 @@ internal class PMHQContext : ContextBase
             Connected = true;
             _ = StartReceiveLoop();
             Collection.Log.LogInfo(Tag, "WS Connect Success");
-            getSelfInfo();
+            await GetSelfInfo();
             return true;
         }
 
