@@ -103,13 +103,8 @@ internal class PMHQContext : ContextBase
 
     public void Start()
     {
-        if (Connect().GetAwaiter().GetResult())
-        {
-        }
-        else
-        {
-            ScheduleReconnect();
-        }
+        Connect().GetAwaiter().GetResult();
+        ScheduleReconnect();
     }
 
     public async Task<bool> Connect()
