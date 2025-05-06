@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Lagrange.Core.Common;
+using Lagrange.Core.Internal.Event.System;
 using Lagrange.Core.Internal.Packets;
 using Lagrange.Core.Utility.Extension;
 using Lagrange.Core.Utility.Network;
@@ -69,21 +70,34 @@ internal class PMHQContext : ContextBase
         _httpServerUri = new Uri($"http://{config.PMHQ.Host}:{config.PMHQ.Port}/");
     }
 
-    public void getSelfInfo()
+    public async Task GetSelfInfo()
     {
         var requestData = new { type = "call", data = new { func = "getSelfInfo" } };
 
         string json = JsonSerializer.Serialize(requestData);
 
         byte[] payload = Encoding.UTF8.GetBytes(json);
-        byte[] responseBytes = Http.PostAsync(_httpServerUri.ToString(), payload, "application/json").GetAwaiter()
-            .GetResult();
+        byte[] responseBytes = await Http.PostAsync(_httpServerUri.ToString(), payload, "application/json");
         string responseJson = Encoding.UTF8.GetString(responseBytes);
         var response = JsonSerializer.Deserialize<GetSelfInfoResponse>(responseJson);
         if (response?.Code == 0)
         {
             Collection.Keystore.Uin = uint.Parse(response.Data.Result.Uin);
             Collection.Keystore.Uid = response.Data.Result.Uid;
+            var events = await Collection.Business.SendEvent(FetchUserInfoEvent.Create(Collection.Keystore.Uin));
+            if (events.Count != 0 && events[0] is FetchUserInfoEvent { } @event)
+            {
+                Collection.Keystore.Info = new BotKeystore.BotInfo
+                {
+                    Name = @event.UserInfo.Nickname,
+                    Age = (byte)@event.UserInfo.Age,
+                    Gender = (byte)@event.UserInfo.Gender
+                };
+            }
+            else
+            {
+                Collection.Log.LogWarning(Tag, "Get BotInfo Failed");
+            }
         }
     }
 
@@ -105,7 +119,7 @@ internal class PMHQContext : ContextBase
             Connected = true;
             _ = StartReceiveLoop();
             Collection.Log.LogInfo(Tag, "WS Connect Success");
-            getSelfInfo();
+            await GetSelfInfo();
             return true;
         }
 
