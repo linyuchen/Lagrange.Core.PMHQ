@@ -333,7 +333,8 @@ internal static class MessagePacker
                 message.ResponseHead.Grp.GroupUin,
                 message.ResponseHead.FromUin,
                 message.ContentHead.Sequence ?? 0,
-                messageId);
+                messageId,
+                message.ResponseHead.Grp.Unknown5 == 1 ? message.ResponseHead.Grp.MemberName : "");
 
         if (message.Body?.RichText?.Elems is { } elems) chain.Elements.AddRange(elems);
 

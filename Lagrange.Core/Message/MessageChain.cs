@@ -21,6 +21,8 @@ public sealed class MessageChain : List<IMessageEntity>
     public BotFriend? FriendInfo { get; internal set; }
 
     public BotGroupMember? GroupMemberInfo { get; internal set; }
+    
+    public string? GroupMemberCard { get; internal set; }
 
     public MessageStyle? Style { get; internal set; }
 
@@ -65,7 +67,7 @@ public sealed class MessageChain : List<IMessageEntity>
         Elements = new List<Elem>();
     }
 
-    internal MessageChain(uint groupUin, uint friendUin, uint sequence, ulong messageId = 0)
+    internal MessageChain(uint groupUin, uint friendUin, uint sequence, ulong messageId = 0, string memberCard = "")
     {
         GroupUin = groupUin;
         FriendUin = friendUin;
@@ -73,6 +75,7 @@ public sealed class MessageChain : List<IMessageEntity>
         Sequence = sequence;
         Uid = null;
         MessageId = messageId;
+        GroupMemberCard = memberCard;
         Elements = new List<Elem>();
     }
 

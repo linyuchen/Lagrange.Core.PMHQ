@@ -553,6 +553,10 @@ internal class MessagingLogic : LogicBase
                 : groups.FirstOrDefault(x => x.Uin == chain.FriendUin);
 
             chain.Uid ??= chain.GroupMemberInfo?.Uid;
+            if (chain.GroupMemberCard != "" && chain.GroupMemberInfo != null)
+            {
+                chain.GroupMemberInfo.MemberCard = chain.GroupMemberCard;
+            }
         }
         else
         {
