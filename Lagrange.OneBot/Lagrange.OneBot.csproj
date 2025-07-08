@@ -11,7 +11,10 @@
         <RepositoryType>git</RepositoryType>
         <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     </PropertyGroup>
-
+    <PropertyGroup>
+        <!-- Disable Control-flow Enforcement Technology -->
+        <CetCompat>false</CetCompat>
+    </PropertyGroup>
     <ItemGroup>
       <None Remove="Resources\appsettings.json" />
     </ItemGroup>
