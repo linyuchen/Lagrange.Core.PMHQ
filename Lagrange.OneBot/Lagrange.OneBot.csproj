@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
     <PropertyGroup>
+        <CetCompat>false</CetCompat>
         <OutputType>Exe</OutputType>
         <LangVersion>preview</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -10,10 +10,6 @@
         <RepositoryUrl>https://github.com/LagrangeDev/Lagrange.Core</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-    </PropertyGroup>
-    <PropertyGroup>
-        <!-- Disable Control-flow Enforcement Technology -->
-        <CetCompat>false</CetCompat>
     </PropertyGroup>
     <ItemGroup>
       <None Remove="Resources\appsettings.json" />
